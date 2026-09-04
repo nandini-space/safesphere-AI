@@ -1,13 +1,26 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+
 from risk_engine import calculate_risk
+from safety_plan import generate_safety_plan
 from AI.analyzer import analyze_conversation
 
+
+# Create Flask application
 app = Flask(__name__)
+
+# Enable frontend to communicate with backend
 CORS(app)
+
+
+# ==========================================
+# ANALYZE CONVERSATION ENDPOINT
+# ==========================================
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
+
+    # Get JSON data safely
     data = request.get_json(silent=True)
 
     # Check if JSON was provided
@@ -27,29 +40,31 @@ def analyze():
             "error": "Text is required"
         }), 400
 
-    # Send conversation to Member 2's AI analyzer
+    # Send conversation to AI analyzer
     try:
         analysis = analyze_conversation(text)
+
     except Exception:
         return jsonify({
             "success": False,
             "error": "Analysis service is temporarily unavailable. Please try again."
         }), 503
 
-    # Check whether the analyzer returned an error
+    # Validate analyzer response
     if not isinstance(analysis, dict):
         return jsonify({
             "success": False,
             "error": "Invalid response from analysis service"
         }), 502
 
+    # Check if AI returned an error
     if analysis.get("error"):
         return jsonify({
             "success": False,
             "error": analysis["error"]
         }), 502
 
-    # Validate the expected AI response structure
+    # Expected fields from AI analyzer
     required_fields = [
         "summary",
         "indicators",
@@ -58,8 +73,10 @@ def analyze():
         "questions"
     ]
 
+    # Check for missing fields
     missing_fields = [
-        field for field in required_fields
+        field
+        for field in required_fields
         if field not in analysis
     ]
 
@@ -69,14 +86,21 @@ def analyze():
             "error": "Invalid response from analysis service"
         }), 502
 
-    # Return the validated analysis
+    # Return AI analysis
     return jsonify({
         "success": True,
         "analysis": analysis
     }), 200
 
+
+# ==========================================
+# FINAL RISK ASSESSMENT ENDPOINT
+# ==========================================
+
 @app.route("/assess", methods=["POST"])
 def assess():
+
+    # Get JSON data safely
     data = request.get_json(silent=True)
 
     # Check if JSON was provided
@@ -86,9 +110,14 @@ def assess():
             "error": "No JSON data provided"
         }), 400
 
-    # Get indicators and context
+    # Get indicators
     indicators = data.get("indicators")
+
+    # Get optional user context
     context = data.get("context", {})
+
+    # Get optional answers
+    answers = data.get("answers", {})
 
     # Validate indicators
     if not indicators:
@@ -104,21 +133,57 @@ def assess():
             "error": "Indicators must be a list"
         }), 400
 
-    # Context must be an object/dictionary
+    # Context must be a dictionary
     if not isinstance(context, dict):
         return jsonify({
             "success": False,
             "error": "Context must be an object"
         }), 400
 
-    # Calculate risk
-    assessment = calculate_risk(indicators, context)
+    # Answers must be a dictionary
+    if not isinstance(answers, dict):
+        return jsonify({
+            "success": False,
+            "error": "Answers must be an object"
+        }), 400
 
-    # Return result
+    # ==========================================
+    # CALCULATE RISK
+    # ==========================================
+
+    assessment = calculate_risk(
+        indicators,
+        context,
+        answers
+    )
+
+    # ==========================================
+    # GENERATE SAFETY PLAN
+    # ==========================================
+
+    safety_plan = generate_safety_plan(
+        assessment["level"],
+        indicators
+    )
+
+    # ==========================================
+    # RETURN FINAL RESULT
+    # ==========================================
+
     return jsonify({
         "success": True,
-        "assessment": assessment
+        "assessment": assessment,
+        "safety_plan": safety_plan
     }), 200
 
+
+# ==========================================
+# RUN FLASK SERVER
+# ==========================================
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(
+        debug=True,
+        host="127.0.0.1",
+        port=5000
+    )
