@@ -1,4 +1,5 @@
 const API_URL = import.meta.env.VITE_API_URL;
+const REQUEST_TIMEOUT_MS = 120000;
 
 async function request(path, options = {}) {
   let response;
@@ -11,6 +12,7 @@ async function request(path, options = {}) {
     }
     response = await fetch(`${API_URL}${path}`, {
       headers: { "Content-Type": "application/json", ...options.headers },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       ...options,
     });
   } catch (error) {
@@ -41,7 +43,11 @@ async function upload(path, file) {
   let response;
   try {
     if (!API_URL) throw new Error("VITE_API_URL is not configured");
-    response = await fetch(`${API_URL}${path}`, { method: "POST", body: formData });
+    response = await fetch(`${API_URL}${path}`, {
+      method: "POST",
+      body: formData,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
   } catch (error) {
     console.error("API upload failed:", error);
     throw new Error(error.message || "network", { cause: error });
