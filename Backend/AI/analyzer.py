@@ -25,7 +25,7 @@ def get_client():
         client = OpenAI(
             api_key=API_KEY,
             base_url="https://api.featherless.ai/v1",
-            timeout=60.0,
+            timeout=25.0,
             max_retries=0,
         )
     return client

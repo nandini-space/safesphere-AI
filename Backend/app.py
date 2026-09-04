@@ -116,9 +116,13 @@ def analyze():
 
 def analyze_uploaded_file(analyzer, input_type):
     """Store a short-lived upload, extract text, and reuse the normal analyzer."""
+    if input_type == "audio":
+        print("[VOICE] request received", flush=True)
     uploaded_file = request.files.get("file")
     if not uploaded_file or not uploaded_file.filename:
         return jsonify({"success": False, "error": "Please choose a file to analyze."}), 400
+    if input_type == "audio":
+        print("[VOICE] file received", uploaded_file.filename, flush=True)
 
     filename = secure_filename(uploaded_file.filename)
     suffix = Path(filename).suffix.lower()
@@ -134,7 +138,11 @@ def analyze_uploaded_file(analyzer, input_type):
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temporary_file:
             temporary_path = temporary_file.name
             uploaded_file.save(temporary_path)
+        if input_type == "audio":
+            print("[VOICE] file saved", temporary_path, flush=True)
 
+        if input_type == "audio":
+            print("[VOICE] transcription started", flush=True)
         result = analyzer(temporary_path)
         analysis = result.get("analysis") if isinstance(result, dict) else None
         if not isinstance(analysis, dict) or analysis.get("error"):
@@ -144,13 +152,16 @@ def analyze_uploaded_file(analyzer, input_type):
                 response["detail"] = result["detail"]
             return jsonify(response), 503
 
-        return jsonify({
+        response = jsonify({
             "success": True,
             "analysis": analysis,
             "extracted_text": result.get("extracted_text", "")
-        }), 200
+        })
+        if input_type == "audio":
+            print("[VOICE] response returned", flush=True)
+        return response, 200
     except Exception as error:
-        print(f"{input_type.title()} analysis error:", str(error))
+        print(f"{input_type.title()} analysis error [{type(error).__name__}]:", str(error), flush=True)
         return jsonify({
             "success": False,
             "error": f"{input_type.title()} analysis failed",
@@ -181,7 +192,7 @@ def analyze_audio_upload():
         from multimodal.audio import analyze_audio
         return analyze_uploaded_file(analyze_audio, "audio")
     except Exception as error:
-        print("Audio upload route error:", str(error))
+        print("Audio upload route error [" + type(error).__name__ + "]:", str(error), flush=True)
         return jsonify({
             "success": False,
             "error": "Voice analysis failed",

@@ -1,5 +1,5 @@
 const API_URL = import.meta.env.VITE_API_URL;
-const REQUEST_TIMEOUT_MS = 120000;
+const REQUEST_TIMEOUT_MS = 60000;
 
 async function request(path, options = {}) {
   let response;

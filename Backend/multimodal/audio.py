@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import os
+import shutil
 
 from AI.analyzer import analyze_conversation
 
@@ -12,6 +13,7 @@ def get_model():
     """Load Whisper only when audio analysis is requested."""
     global model
     if model is None:
+        print("[VOICE] loading Whisper model", flush=True)
         try:
             from faster_whisper import WhisperModel
         except ImportError as error:
@@ -24,6 +26,7 @@ def get_model():
             device="cpu",
             compute_type="int8",
         )
+        print("[VOICE] Whisper model loaded", flush=True)
     return model
 
 
@@ -38,6 +41,7 @@ def transcribe_audio(audio_path):
     """
 
     try:
+        print("[VOICE] ffmpeg:", shutil.which("ffmpeg") or "not found; PyAV decoder will be used", flush=True)
         segments, info = get_model().transcribe(
             str(audio_path),
             beam_size=1,
@@ -58,6 +62,7 @@ def transcribe_audio(audio_path):
                 "error": "No speech could be transcribed from the audio"
             }
 
+        print("[VOICE] transcription completed", flush=True)
         return {
             "input_type": "audio",
             "text": transcript,
@@ -66,6 +71,7 @@ def transcribe_audio(audio_path):
         }
 
     except Exception as error:
+        print(f"[VOICE] transcription exception [{type(error).__name__}]: {error}", flush=True)
         return {
             "input_type": "audio",
             "text": "",
@@ -90,7 +96,9 @@ def analyze_audio(audio_path):
     text = transcription["text"]
 
     # Step 2: Send transcript to Member 2
+    print("[VOICE] AI analysis started", flush=True)
     analysis = analyze_conversation(text)
+    print("[VOICE] AI analysis completed", flush=True)
 
     # Step 3: Return standardized SafeSphere result
     return {
