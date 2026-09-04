@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import os
 
 from AI.analyzer import analyze_conversation
 
@@ -18,7 +19,11 @@ def get_model():
                 "Voice transcription is unavailable: faster-whisper is not installed on the server."
             ) from error
 
-        model = WhisperModel("small", device="cpu", compute_type="int8")
+        model = WhisperModel(
+            os.getenv("WHISPER_MODEL", "tiny"),
+            device="cpu",
+            compute_type="int8",
+        )
     return model
 
 
@@ -35,7 +40,8 @@ def transcribe_audio(audio_path):
     try:
         segments, info = get_model().transcribe(
             str(audio_path),
-            beam_size=5
+            beam_size=1,
+            vad_filter=True,
         )
 
         # Combine all transcript segments
