@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getVaultCase, getVaultCases } from "../services/api";
+import { supabase } from "../supabase";
+
+const VAULT_COLUMNS = "id, created_at, case_name, summary, concern_level, risk_score, indicators, timeline, safety_plan";
 
 function Vault() {
   const navigate = useNavigate();
@@ -11,15 +13,42 @@ function Vault() {
   const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => { (async () => {
-    try { const response = await getVaultCases(); setCases(response.cases || []); }
-    catch { setError("Unable to load your saved cases."); }
+    try {
+      const { data, error: vaultError } = await supabase
+        .from("evidence_vault")
+        .select(VAULT_COLUMNS)
+        .order("created_at", { ascending: false });
+      if (vaultError) {
+        console.error("Supabase vault query failed:", vaultError);
+        setError("Unable to load your saved cases.");
+      } else {
+        setCases(data || []);
+      }
+    } catch (vaultError) {
+      console.error("Supabase vault query failed:", vaultError);
+      setError("Unable to load your saved cases.");
+    }
     finally { setLoading(false); }
   })(); }, []);
 
   const openCase = async (id) => {
     setDetailLoading(true); setError("");
-    try { const response = await getVaultCase(id); setSelectedCase(response.case); }
-    catch { setError("Unable to load this saved case."); }
+    try {
+      const { data, error: vaultError } = await supabase
+        .from("evidence_vault")
+        .select(VAULT_COLUMNS)
+        .eq("id", id)
+        .single();
+      if (vaultError) {
+        console.error("Supabase vault case query failed:", vaultError);
+        setError("Unable to load this saved case.");
+      } else {
+        setSelectedCase(data);
+      }
+    } catch (vaultError) {
+      console.error("Supabase vault case query failed:", vaultError);
+      setError("Unable to load this saved case.");
+    }
     finally { setDetailLoading(false); }
   };
   const formatDate = (date) => date ? new Date(date).toLocaleString() : "Date unavailable";
