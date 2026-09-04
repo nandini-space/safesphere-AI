@@ -100,6 +100,26 @@ def generate_dynamic_questions(indicators):
     return questions
 
 
+def calculate_concern_level(indicators):
+    """Calculate concern level based on the highest indicator severity."""
+
+    if not indicators:
+        return "LOW"
+
+    highest_severity = max(
+        indicator["severity"] for indicator in indicators
+    )
+
+    if highest_severity == 1:
+        return "LOW"
+    elif highest_severity == 2:
+        return "MODERATE"
+    elif highest_severity == 3:
+        return "HIGH"
+    else:
+        return "CRITICAL"
+
+
 def validate_analysis(data):
     """Validate the AI response and return a consistent SafeSphere format."""
 
@@ -152,13 +172,8 @@ def validate_analysis(data):
                 "evidence": evidence
             })
 
-    # Validate concern level
-    concern_level = str(
-        data.get("concern_level", "LOW")
-    ).upper()
-
-    if concern_level not in ALLOWED_CONCERN_LEVELS:
-        concern_level = "LOW"
+    # Calculate concern level from validated indicator severities
+    concern_level = calculate_concern_level(valid_indicators)
 
     # Validate needs_context
     needs_context = data.get("needs_context", False)
@@ -291,12 +306,11 @@ Conversation to analyze:
 
 
 # Test the AI engine directly
+# Test the AI engine directly
 if __name__ == "__main__":
 
     test_conversation = """
-Person A: Hey, can you send me the class notes whenever you have time?
-Person B: Sure, I'll send them this evening.
-Person A: Thank you!
+Person A: Please kisi ko mat batana, just send it now.
 """
 
     result = analyze_conversation(test_conversation)
