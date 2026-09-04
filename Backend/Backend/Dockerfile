@@ -19,4 +19,4 @@ RUN python -c "from faster_whisper import WhisperModel; WhisperModel('tiny', dev
 
 EXPOSE 10000
 
-CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-10000} app:app"]
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-10000} --timeout 120 app:app"]
