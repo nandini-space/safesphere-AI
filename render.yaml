@@ -1,8 +1,9 @@
 services:
   - type: web
     name: safesphere-backend
+    rootDir: Backend
     env: docker
-    dockerfilePath: Backend/Dockerfile
+    dockerfilePath: Dockerfile
     envVars:
       - key: FEATHERLESS_API_KEY
         sync: false
