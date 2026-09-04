@@ -163,14 +163,30 @@ def analyze_uploaded_file(analyzer, input_type):
 
 @app.route("/analyze/image", methods=["POST"])
 def analyze_image_upload():
-    from multimodal.image import analyze_image
-    return analyze_uploaded_file(analyze_image, "image")
+    try:
+        from multimodal.image import analyze_image
+        return analyze_uploaded_file(analyze_image, "image")
+    except Exception as error:
+        print("Image upload route error:", str(error))
+        return jsonify({
+            "success": False,
+            "error": "Screenshot analysis failed",
+            "detail": str(error),
+        }), 503
 
 
 @app.route("/analyze/audio", methods=["POST"])
 def analyze_audio_upload():
-    from multimodal.audio import analyze_audio
-    return analyze_uploaded_file(analyze_audio, "audio")
+    try:
+        from multimodal.audio import analyze_audio
+        return analyze_uploaded_file(analyze_audio, "audio")
+    except Exception as error:
+        print("Audio upload route error:", str(error))
+        return jsonify({
+            "success": False,
+            "error": "Voice analysis failed",
+            "detail": str(error),
+        }), 503
 
 
 # ==========================================
