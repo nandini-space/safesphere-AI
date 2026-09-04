@@ -139,7 +139,10 @@ def analyze_uploaded_file(analyzer, input_type):
         analysis = result.get("analysis") if isinstance(result, dict) else None
         if not isinstance(analysis, dict) or analysis.get("error"):
             error = result.get("error") or (analysis or {}).get("error") or "Unable to analyze this upload."
-            return jsonify({"success": False, "error": error}), 503
+            response = {"success": False, "error": error}
+            if isinstance(result, dict) and result.get("detail"):
+                response["detail"] = result["detail"]
+            return jsonify(response), 503
 
         return jsonify({
             "success": True,
@@ -148,7 +151,11 @@ def analyze_uploaded_file(analyzer, input_type):
         }), 200
     except Exception as error:
         print(f"{input_type.title()} analysis error:", str(error))
-        return jsonify({"success": False, "error": f"Unable to analyze this {input_type} right now. Please try again."}), 503
+        return jsonify({
+            "success": False,
+            "error": f"{input_type.title()} analysis failed",
+            "detail": str(error),
+        }), 503
     finally:
         if temporary_path and os.path.exists(temporary_path):
             os.remove(temporary_path)

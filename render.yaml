@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: safesphere-backend
+    env: docker
+    dockerfilePath: Backend/Dockerfile
+    envVars:
+      - key: FEATHERLESS_API_KEY
+        sync: false
+      - key: FEATHERLESS_MODEL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: TESSERACT_CMD
+        value: /usr/bin/tesseract

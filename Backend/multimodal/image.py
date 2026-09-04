@@ -47,7 +47,8 @@ def extract_text_from_image(image_path):
                 "input_type": "image",
                 "text": "",
                 "language": "unknown",
-                "error": "Screenshot analysis is not configured on this server. Install the OCR dependencies to enable it."
+                "error": "Screenshot OCR is unavailable",
+                "detail": "Pillow and pytesseract must be installed on the server.",
             }
 
         configured_path = os.getenv("TESSERACT_CMD")
@@ -66,7 +67,8 @@ def extract_text_from_image(image_path):
                 "input_type": "image",
                 "text": "",
                 "language": "unknown",
-                "error": "Screenshot analysis is not configured on this server. Install Tesseract OCR or set TESSERACT_CMD to its executable."
+                "error": "Screenshot OCR is unavailable",
+                "detail": "Tesseract OCR is not installed on the server.",
             }
 
         pytesseract.pytesseract.tesseract_cmd = str(tesseract_path)
@@ -89,7 +91,8 @@ def extract_text_from_image(image_path):
             "input_type": "image",
             "text": "",
             "language": "unknown",
-            "error": "We could not read text from this screenshot. Please try a clearer image."
+            "error": "Screenshot OCR failed",
+            "detail": str(error),
         }
 
 

@@ -7,4 +7,5 @@ supabase
 Pillow
 pytesseract
 faster-whisper
+av
 gunicorn

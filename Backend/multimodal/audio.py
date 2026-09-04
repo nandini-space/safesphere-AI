@@ -15,7 +15,7 @@ def get_model():
             from faster_whisper import WhisperModel
         except ImportError as error:
             raise RuntimeError(
-                "Voice analysis is not configured on this server. Install faster-whisper to enable it."
+                "Voice transcription is unavailable: faster-whisper is not installed on the server."
             ) from error
 
         model = WhisperModel("small", device="cpu", compute_type="int8")
@@ -64,7 +64,8 @@ def transcribe_audio(audio_path):
             "input_type": "audio",
             "text": "",
             "language": "unknown",
-            "error": str(error) if "not configured" in str(error) else "We could not transcribe this recording. Please try a clearer audio file."
+            "error": "Voice transcription failed",
+            "detail": str(error),
         }
 
 
