@@ -223,10 +223,24 @@ IMPORTANT RULES:
 
 3. Understand English, Hindi, Hinglish, and mixed languages.
 
-4. Return ONLY valid JSON.
+4. Evaluate EACH allowed indicator independently.
+
+5. A conversation may contain multiple indicators at the same time.
+Do not return only the strongest indicator.
+Return every indicator that is reasonably supported by the conversation.
+
+6. Consider the meaning and context, not just exact English keywords.
+
+Examples of meaning:
+- "Kisi ko mat batana" or "Don't tell anyone" may indicate secrecy.
+- "Jaldi karo", "Do it now", or "Send it immediately" may indicate urgency.
+- Statements that make someone feel forced may indicate coercion or pressure.
+- Threatening consequences may indicate threat.
+
+7. Return ONLY valid JSON.
 Do not use markdown or code fences.
 
-5. Keep the summary concise and neutral.
+8. Keep the summary concise and neutral.
 
 Use exactly this structure:
 
@@ -254,6 +268,13 @@ LOW
 MODERATE
 HIGH
 CRITICAL
+
+Conversation to analyze:
+
+Before producing the final JSON, carefully check the entire conversation
+against EVERY allowed indicator.
+
+If more than one indicator is present, include all relevant indicators.
 
 Conversation to analyze:
 
@@ -307,10 +328,11 @@ Conversation to analyze:
 
 # Test the AI engine directly
 # Test the AI engine directly
+# Test the AI engine directly
 if __name__ == "__main__":
 
     test_conversation = """
-Person A: Please kisi ko mat batana, just send it now.
+Person A: Kisi ko mat batana. Jaldi karo and send it now.
 """
 
     result = analyze_conversation(test_conversation)
