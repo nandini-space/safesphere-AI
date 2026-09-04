@@ -14,11 +14,19 @@ API_KEY = os.getenv("FEATHERLESS_API_KEY")
 FEATHERLESS_MODEL = os.getenv("FEATHERLESS_MODEL")
 
 
-# Connect to Featherless AI
-client = OpenAI(
-    api_key=API_KEY,
-    base_url="https://api.featherless.ai/v1"
-)
+# Create the provider client lazily so the Flask app can still start and return
+# a helpful error when environment variables have not been configured yet.
+client = None
+
+
+def get_client():
+    global client
+    if client is None:
+        client = OpenAI(
+            api_key=API_KEY,
+            base_url="https://api.featherless.ai/v1"
+        )
+    return client
 
 
 # Controlled list of allowed indicators
@@ -259,26 +267,15 @@ IMPORTANT RULES:
 
 3. Only identify indicators supported by the conversation.
 
-<<<<<<< HEAD
 4. Understand English, Hindi, Hinglish, and mixed languages.
 
-5. Do not diagnose people.
+5. Evaluate EACH allowed indicator independently.
 
-6. Do not claim certainty about someone's intentions.
-
-7. Keep the summary concise, neutral, and calm.
-
-8. Return ONLY valid JSON.
-
-9. Do not use markdown or code fences.
-=======
-4. Evaluate EACH allowed indicator independently.
-
-5. A conversation may contain multiple indicators at the same time.
+6. A conversation may contain multiple indicators at the same time.
 Do not return only the strongest indicator.
 Return every indicator that is reasonably supported by the conversation.
 
-6. Consider the meaning and context, not just exact English keywords.
+7. Consider the meaning and context, not just exact English keywords.
 
 Examples of meaning:
 - "Kisi ko mat batana" or "Don't tell anyone" may indicate secrecy.
@@ -286,11 +283,12 @@ Examples of meaning:
 - Statements that make someone feel forced may indicate coercion or pressure.
 - Threatening consequences may indicate threat.
 
-7. Return ONLY valid JSON.
+8. Do not diagnose people or claim certainty about someone's intentions.
+
+9. Return ONLY valid JSON.
 Do not use markdown or code fences.
 
-8. Keep the summary concise and neutral.
->>>>>>> 1bf1dfad8f8bf83e7c488b9753065ffdfa002535
+10. Keep the summary concise, neutral, and calm.
 
 Use exactly this structure:
 
@@ -331,7 +329,7 @@ Conversation to analyze:
 
     # Call Featherless AI
     try:
-        response = client.chat.completions.create(
+        response = get_client().chat.completions.create(
             model=FEATHERLESS_MODEL,
             messages=[
                 {

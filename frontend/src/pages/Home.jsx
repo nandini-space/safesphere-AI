@@ -34,28 +34,6 @@ function Home() {
             Vault
           </button>
 
-          <button
-            onClick={() =>
-              alert("Resources will be available soon.")
-            }
-          >
-            Resources
-          </button>
-
-          <button
-            onClick={() =>
-              alert("About SafeSphere")
-            }
-          >
-            About
-          </button>
-
-        </div>
-
-
-        {/* Account */}
-        <div className="account">
-          👤 Account
         </div>
 
       </nav>
@@ -135,14 +113,13 @@ function Home() {
 
         </section>
 
-
         {/* Feature Cards */}
         <section className="features">
 
           <div className="feature-card pink-card">
 
             <div className="feature-icon">
-              💬
+              ?
             </div>
 
             <div>

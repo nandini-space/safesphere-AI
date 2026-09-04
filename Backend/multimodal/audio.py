@@ -1,18 +1,25 @@
 from pathlib import Path
 import json
 
-from faster_whisper import WhisperModel
-
-from Backend.AI.analyzer import analyze_conversation
+from AI.analyzer import analyze_conversation
 
 
-# Load Whisper once when the module starts.
-# "small" gives a good balance between accuracy and speed.
-model = WhisperModel(
-    "small",
-    device="cpu",
-    compute_type="int8"
-)
+model = None
+
+
+def get_model():
+    """Load Whisper only when audio analysis is requested."""
+    global model
+    if model is None:
+        try:
+            from faster_whisper import WhisperModel
+        except ImportError as error:
+            raise RuntimeError(
+                "Voice analysis is not configured on this server. Install faster-whisper to enable it."
+            ) from error
+
+        model = WhisperModel("small", device="cpu", compute_type="int8")
+    return model
 
 
 def transcribe_audio(audio_path):
@@ -26,7 +33,7 @@ def transcribe_audio(audio_path):
     """
 
     try:
-        segments, info = model.transcribe(
+        segments, info = get_model().transcribe(
             str(audio_path),
             beam_size=5
         )
@@ -57,7 +64,7 @@ def transcribe_audio(audio_path):
             "input_type": "audio",
             "text": "",
             "language": "unknown",
-            "error": f"Audio transcription failed: {error}"
+            "error": str(error) if "not configured" in str(error) else "We could not transcribe this recording. Please try a clearer audio file."
         }
 
 

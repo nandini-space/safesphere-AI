@@ -1,17 +1,10 @@
 from pathlib import Path
 import re
 import json
+import os
+import shutil
 
-from PIL import Image
-import pytesseract
-
-from Backend.AI.analyzer import analyze_conversation
-
-
-# Tell pytesseract where Tesseract is installed
-pytesseract.pytesseract.tesseract_cmd = (
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
+from AI.analyzer import analyze_conversation
 
 
 def clean_ocr_text(text):
@@ -46,6 +39,37 @@ def extract_text_from_image(image_path):
     """
 
     try:
+        try:
+            from PIL import Image
+            import pytesseract
+        except ImportError:
+            return {
+                "input_type": "image",
+                "text": "",
+                "language": "unknown",
+                "error": "Screenshot analysis is not configured on this server. Install the OCR dependencies to enable it."
+            }
+
+        configured_path = os.getenv("TESSERACT_CMD")
+        candidate_paths = [
+            configured_path,
+            shutil.which("tesseract"),
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        ]
+        tesseract_path = next(
+            (Path(path) for path in candidate_paths if path and Path(path).exists()),
+            None,
+        )
+        if tesseract_path is None:
+            return {
+                "input_type": "image",
+                "text": "",
+                "language": "unknown",
+                "error": "Screenshot analysis is not configured on this server. Install Tesseract OCR or set TESSERACT_CMD to its executable."
+            }
+
+        pytesseract.pytesseract.tesseract_cmd = str(tesseract_path)
         image = Image.open(image_path)
 
         # Extract text using OCR
@@ -65,7 +89,7 @@ def extract_text_from_image(image_path):
             "input_type": "image",
             "text": "",
             "language": "unknown",
-            "error": f"Image OCR failed: {error}"
+            "error": "We could not read text from this screenshot. Please try a clearer image."
         }
 
 

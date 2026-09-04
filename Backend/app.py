@@ -1,11 +1,17 @@
+import os
+import tempfile
+from pathlib import Path
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 from risk_engine import calculate_risk
 from safety_plan import generate_safety_plan
 from escalation_timeline import generate_escalation_timeline
 from AI.analyzer import analyze_conversation
 from supabase_client import supabase
+from evidence_vault import get_cases, get_case
 
 
 # ==========================================
@@ -13,9 +19,13 @@ from supabase_client import supabase
 # ==========================================
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
-# Allow frontend to communicate with backend
-CORS(app)
+# Allow the local Vite development server to communicate with the API.
+CORS(app, resources={r"/*": {"origins": [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]}})
 
 
 # ==========================================
@@ -66,10 +76,11 @@ def analyze():
 
     # Check if AI analyzer returned an error
     if analysis.get("error"):
+        print("Analysis service error:", analysis["error"])
         return jsonify({
             "success": False,
-            "error": analysis["error"]
-        }), 502
+            "error": "Analysis service is temporarily unavailable. Please try again."
+        }), 503
 
     # Expected fields from AI analyzer
     required_fields = [
@@ -99,6 +110,102 @@ def analyze():
     return jsonify({
         "success": True,
         "analysis": analysis
+    }), 200
+
+
+def analyze_uploaded_file(analyzer, input_type):
+    """Store a short-lived upload, extract text, and reuse the normal analyzer."""
+    uploaded_file = request.files.get("file")
+    if not uploaded_file or not uploaded_file.filename:
+        return jsonify({"success": False, "error": "Please choose a file to analyze."}), 400
+
+    filename = secure_filename(uploaded_file.filename)
+    suffix = Path(filename).suffix.lower()
+    allowed_extensions = {
+        "image": {".png", ".jpg", ".jpeg", ".webp"},
+        "audio": {".wav", ".mp3", ".m4a", ".webm"},
+    }
+    if suffix not in allowed_extensions[input_type]:
+        return jsonify({"success": False, "error": "That file format is not supported."}), 400
+
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temporary_file:
+            temporary_path = temporary_file.name
+            uploaded_file.save(temporary_path)
+
+        result = analyzer(temporary_path)
+        analysis = result.get("analysis") if isinstance(result, dict) else None
+        if not isinstance(analysis, dict) or analysis.get("error"):
+            error = result.get("error") or (analysis or {}).get("error") or "Unable to analyze this upload."
+            return jsonify({"success": False, "error": error}), 503
+
+        return jsonify({
+            "success": True,
+            "analysis": analysis,
+            "extracted_text": result.get("extracted_text", "")
+        }), 200
+    except Exception as error:
+        print(f"{input_type.title()} analysis error:", str(error))
+        return jsonify({"success": False, "error": f"Unable to analyze this {input_type} right now. Please try again."}), 503
+    finally:
+        if temporary_path and os.path.exists(temporary_path):
+            os.remove(temporary_path)
+
+
+@app.route("/analyze/image", methods=["POST"])
+def analyze_image_upload():
+    from multimodal.image import analyze_image
+    return analyze_uploaded_file(analyze_image, "image")
+
+
+@app.route("/analyze/audio", methods=["POST"])
+def analyze_audio_upload():
+    from multimodal.audio import analyze_audio
+    return analyze_uploaded_file(analyze_audio, "audio")
+
+
+# ==========================================
+# EVIDENCE VAULT ENDPOINTS
+# ==========================================
+
+@app.route("/vault", methods=["GET"])
+def vault_cases():
+    result = get_cases()
+
+    if not result["success"]:
+        print("Evidence Vault fetch error:", result["error"])
+        return jsonify({
+            "success": False,
+            "error": "Unable to load saved cases"
+        }), 500
+
+    return jsonify({
+        "success": True,
+        "cases": result["data"]
+    }), 200
+
+
+@app.route("/vault/<int:case_id>", methods=["GET"])
+def vault_case(case_id):
+    result = get_case(case_id)
+
+    if not result["success"]:
+        if result["error"] == "Case not found":
+            return jsonify({
+                "success": False,
+                "error": "Case not found"
+            }), 404
+
+        print("Evidence Vault case fetch error:", result["error"])
+        return jsonify({
+            "success": False,
+            "error": "Unable to load this saved case"
+        }), 500
+
+    return jsonify({
+        "success": True,
+        "case": result["data"]
     }), 200
 
 
@@ -156,7 +263,7 @@ def assess():
     # VALIDATE INPUT
     # ==========================================
 
-    if not indicators:
+    if indicators is None:
         return jsonify({
             "success": False,
             "error": "Indicators are required"
@@ -324,7 +431,9 @@ def home():
 if __name__ == "__main__":
 
     app.run(
-        debug=True,
+        # Keep a single predictable process by default. Set FLASK_DEBUG=1 only
+        # when actively developing the backend and needing auto-reload.
+        debug=os.getenv("FLASK_DEBUG") == "1",
         host="127.0.0.1",
-        port=5000
+        port=int(os.getenv("PORT", "5001"))
     )

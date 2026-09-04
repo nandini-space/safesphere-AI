@@ -1,176 +1,35 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getVaultCase, getVaultCases } from "../services/api";
 
 function Vault() {
   const navigate = useNavigate();
+  const [cases, setCases] = useState([]);
+  const [selectedCase, setSelectedCase] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [detailLoading, setDetailLoading] = useState(false);
 
-  const [files, setFiles] = useState([]);
+  useEffect(() => { (async () => {
+    try { const response = await getVaultCases(); setCases(response.cases || []); }
+    catch { setError("Unable to load your saved cases."); }
+    finally { setLoading(false); }
+  })(); }, []);
 
-  const handleFileChange = (event) => {
-    const selectedFiles = Array.from(event.target.files);
-
-    setFiles((previousFiles) => [
-      ...previousFiles,
-      ...selectedFiles,
-    ]);
+  const openCase = async (id) => {
+    setDetailLoading(true); setError("");
+    try { const response = await getVaultCase(id); setSelectedCase(response.case); }
+    catch { setError("Unable to load this saved case."); }
+    finally { setDetailLoading(false); }
   };
+  const formatDate = (date) => date ? new Date(date).toLocaleString() : "Date unavailable";
 
-  const removeFile = (indexToRemove) => {
-    setFiles((previousFiles) =>
-      previousFiles.filter(
-        (_, index) => index !== indexToRemove
-      )
-    );
-  };
-
-  return (
-    <div className="page">
-
-      <div className="analysis-container">
-
-        {/* Header */}
-        <div className="analysis-header">
-
-          <span className="soft-badge">
-            🔐 Your Evidence Vault
-          </span>
-
-          <h1>Keep Your Evidence Organized</h1>
-
-          <p>
-            Store important screenshots, recordings, or
-            other files in one place for easy review.
-          </p>
-
-        </div>
-
-
-        {/* Upload Card */}
-        <div className="question-card">
-
-          <h3>📁 Add Evidence</h3>
-
-          <p>
-            Select files from your computer to add them
-            to this temporary vault.
-          </p>
-
-          <input
-            type="file"
-            multiple
-            onChange={handleFileChange}
-          />
-
-        </div>
-
-
-        {/* Files */}
-        <div className="question-card">
-
-          <h3>📋 Evidence Items</h3>
-
-          {files.length === 0 ? (
-
-            <p>
-              No evidence has been added yet.
-            </p>
-
-          ) : (
-
-            <div>
-
-              {files.map((file, index) => (
-
-                <div
-                  key={`${file.name}-${index}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "15px",
-                    padding: "14px",
-                    marginBottom: "10px",
-                    borderRadius: "12px",
-                    background: "#f7f2ff"
-                  }}
-                >
-
-                  <div>
-
-                    <strong>
-                      {file.name}
-                    </strong>
-
-                    <p
-                      style={{
-                        margin: "5px 0 0",
-                        fontSize: "13px",
-                        color: "#6d6880"
-                      }}
-                    >
-                      {(file.size / 1024).toFixed(1)} KB
-                    </p>
-
-                  </div>
-
-                  <button
-                    className="choice"
-                    onClick={() => removeFile(index)}
-                  >
-                    Remove
-                  </button>
-
-                </div>
-
-              ))}
-
-            </div>
-
-          )}
-
-        </div>
-
-
-        {/* Privacy Notice */}
-        <div className="privacy-note">
-
-          🔒 Privacy reminder: Only add files you are
-          comfortable storing. This current version keeps
-          selected files in the browser interface only.
-
-        </div>
-
-
-        {/* Navigation */}
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            flexWrap: "wrap",
-            marginTop: "25px"
-          }}
-        >
-
-          <button
-            className="start-button"
-            onClick={() => navigate("/")}
-          >
-            Back to Home
-          </button>
-
-          <button
-            className="choice"
-            onClick={() => navigate("/analyze")}
-          >
-            Analyze Another Interaction
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
+  return <div className="page vault-page"><div className="analysis-container">
+    <div className="analysis-header"><span className="soft-badge">Your evidence vault</span><h1>Saved assessments</h1><p>Only assessment details saved by SafeSphere are shown here.</p></div>
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <div className="question-card"><h3>Previous cases</h3>{loading ? <p>Loading saved cases...</p> : cases.length === 0 ? <p>No saved cases yet. Complete an assessment to see it here.</p> : <div className="vault-list">{cases.map((item) => <button className="vault-case" key={item.id} onClick={() => openCase(item.id)}><strong>{item.case_name || "SafeSphere Analysis"}</strong><span>{item.concern_level} · {item.risk_score}/100</span><small>{formatDate(item.created_at)}</small></button>)}</div>}</div>
+    {(detailLoading || selectedCase) && <div className="question-card case-details-card"><h3>Case details</h3>{detailLoading ? <p>Loading case details...</p> : <><p>{selectedCase.summary}</p><p><strong>{selectedCase.concern_level}</strong> · {selectedCase.risk_score}/100</p><h4>Indicators</h4><ul>{selectedCase.indicators?.map((item) => <li key={item.name}>{item.name.replaceAll("_", " ")}{item.evidence ? `: ${item.evidence}` : ""}</li>)}</ul><h4>Safety plan</h4><p>{selectedCase.safety_plan?.message}</p><ol>{selectedCase.safety_plan?.steps?.map((step) => <li key={step}>{step}</li>)}</ol></>}</div>}
+    <button className="start-button" onClick={() => navigate("/analyze")}>Analyze another interaction</button><button className="choice" onClick={() => navigate("/")}>Back to home</button>
+  </div></div>;
 }
-
 export default Vault;

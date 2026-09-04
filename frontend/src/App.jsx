@@ -7,10 +7,12 @@ import Questions from "./pages/Questions";
 import Results from "./pages/Results";
 import SafetyPlan from "./pages/SafetyPlan";
 import Vault from "./pages/Vault";
+import { AnalysisProvider } from "./context/AnalysisContext";
 
 function App() {
   return (
     <BrowserRouter>
+      <AnalysisProvider>
       <Routes>
 
         {/* Home */}
@@ -32,6 +34,7 @@ function App() {
         <Route path="/vault" element={<Vault />} />
 
       </Routes>
+      </AnalysisProvider>
     </BrowserRouter>
   );
 }
