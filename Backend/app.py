@@ -1,34 +1,80 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from risk_engine import calculate_risk
+from AI.analyzer import analyze_conversation
 
 app = Flask(__name__)
 CORS(app)
-
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
     data = request.get_json(silent=True)
 
+    # Check if JSON was provided
     if data is None:
         return jsonify({
+            "success": False,
             "error": "No JSON data provided"
         }), 400
 
+    # Get conversation text
     text = data.get("text")
 
-    if not text:
+    # Validate text
+    if not isinstance(text, str) or not text.strip():
         return jsonify({
+            "success": False,
             "error": "Text is required"
         }), 400
 
+    # Send conversation to Member 2's AI analyzer
+    try:
+        analysis = analyze_conversation(text)
+    except Exception:
+        return jsonify({
+            "success": False,
+            "error": "Analysis service is temporarily unavailable. Please try again."
+        }), 503
+
+    # Check whether the analyzer returned an error
+    if not isinstance(analysis, dict):
+        return jsonify({
+            "success": False,
+            "error": "Invalid response from analysis service"
+        }), 502
+
+    if analysis.get("error"):
+        return jsonify({
+            "success": False,
+            "error": analysis["error"]
+        }), 502
+
+    # Validate the expected AI response structure
+    required_fields = [
+        "summary",
+        "indicators",
+        "concern_level",
+        "needs_context",
+        "questions"
+    ]
+
+    missing_fields = [
+        field for field in required_fields
+        if field not in analysis
+    ]
+
+    if missing_fields:
+        return jsonify({
+            "success": False,
+            "error": "Invalid response from analysis service"
+        }), 502
+
+    # Return the validated analysis
     return jsonify({
         "success": True,
-        "message": "Analysis endpoint is working",
-        "received_text": text,
-        "indicators": [],
-        "questions": []
+        "analysis": analysis
     }), 200
+
 @app.route("/assess", methods=["POST"])
 def assess():
     data = request.get_json(silent=True)

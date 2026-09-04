@@ -38,7 +38,26 @@ def calculate_risk(indicators, context=None):
 
     # Calculate points from indicators
     for indicator in indicators:
-        indicator_name = indicator.lower().strip()
+
+        # Format 1: Simple string
+        # Example: "secrecy"
+        if isinstance(indicator, str):
+            indicator_name = indicator.lower().strip()
+
+        # Format 2: AI indicator object
+        # Example: {"name": "secrecy", "severity": 2, ...}
+        elif isinstance(indicator, dict):
+            indicator_name = indicator.get("name", "")
+
+            if not isinstance(indicator_name, str):
+                continue
+
+            indicator_name = indicator_name.lower().strip()
+
+        # Ignore invalid formats
+        else:
+            continue
+
         points = INDICATOR_POINTS.get(indicator_name, 0)
 
         if points > 0:
@@ -55,6 +74,7 @@ def calculate_risk(indicators, context=None):
         for context_name, enabled in context.items():
             if enabled and context_name in CONTEXT_POINTS:
                 points = CONTEXT_POINTS[context_name]
+
                 score += points
 
                 breakdown.append({
@@ -78,11 +98,17 @@ def calculate_risk(indicators, context=None):
 if __name__ == "__main__":
 
     test_indicators = [
-        "secrecy",
-        "pressure",
-        "threat"
-    ]
-
+    {
+        "name": "coercion",
+        "severity": 3,
+        "evidence": "You must send me the money immediately."
+    },
+    {
+        "name": "secrecy",
+        "severity": 2,
+        "evidence": "Do not tell anyone."
+    }
+]
     test_context = {
         "unknown_sender": True,
         "unexpected_interaction": True,
