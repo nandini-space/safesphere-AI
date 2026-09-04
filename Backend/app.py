@@ -24,7 +24,8 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 # Allow the local Vite development server to communicate with the API.
 CORS(app, resources={r"/*": {"origins": [
     "http://localhost:5173",
-    "http://127.0.0.1:5173"
+    "http://127.0.0.1:5173",
+    "https://safesphere-ai-six.vercel.app"
 ]}})
 
 
