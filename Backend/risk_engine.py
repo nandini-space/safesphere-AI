@@ -5,6 +5,8 @@
 
 # Risk points for AI-detected indicators
 INDICATOR_POINTS = {
+
+    "urgency": 10,
     "secrecy": 15,
     "repeated_pressure": 15,
     "pressure": 15,

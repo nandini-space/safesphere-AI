@@ -1,15 +1,17 @@
-from dotenv import load_dotenv
-from openai import OpenAI
 import os
 import json
+
+from dotenv import load_dotenv
+from openai import OpenAI
 
 
 # Load environment variables from .env
 load_dotenv()
 
 
-# Get Featherless API key
+# Get Featherless API details
 API_KEY = os.getenv("FEATHERLESS_API_KEY")
+FEATHERLESS_MODEL = os.getenv("FEATHERLESS_MODEL")
 
 
 # Connect to Featherless AI
@@ -23,6 +25,7 @@ client = OpenAI(
 ALLOWED_INDICATORS = [
     "urgency",
     "secrecy",
+    "repeated_pressure",
     "pressure",
     "manipulation",
     "boundary_testing",
@@ -34,15 +37,6 @@ ALLOWED_INDICATORS = [
 ]
 
 
-# Allowed concern levels
-ALLOWED_CONCERN_LEVELS = [
-    "LOW",
-    "MODERATE",
-    "HIGH",
-    "CRITICAL"
-]
-
-
 # Fixed question templates based on detected indicators
 QUESTION_TEMPLATES = {
     "urgency": [
@@ -50,6 +44,9 @@ QUESTION_TEMPLATES = {
     ],
     "secrecy": [
         "Were you asked to hide this interaction from someone you trust?"
+    ],
+    "repeated_pressure": [
+        "Has the person continued pressuring you after you hesitated or refused?"
     ],
     "pressure": [
         "Did you feel pressured to do something you did not want to do?"
@@ -84,15 +81,21 @@ def generate_dynamic_questions(indicators):
     questions = []
     question_number = 1
 
+    # Limit to 3 questions for a cleaner MVP experience
     for indicator in indicators:
         name = indicator.get("name")
 
         if name in QUESTION_TEMPLATES:
             for question_text in QUESTION_TEMPLATES[name]:
+
+                if len(questions) >= 3:
+                    return questions
+
                 questions.append({
                     "id": f"q{question_number}",
                     "question": question_text,
-                    "type": "multiple_choice"
+                    "type": "multiple_choice",
+                    "indicator": name
                 })
 
                 question_number += 1
@@ -101,27 +104,36 @@ def generate_dynamic_questions(indicators):
 
 
 def calculate_concern_level(indicators):
-    """Calculate concern level based on the highest indicator severity."""
+    """
+    Calculate a preliminary AI concern level.
+
+    The final risk level should come from risk_engine.py
+    after user context and answers are included.
+    """
 
     if not indicators:
         return "LOW"
 
     highest_severity = max(
-        indicator["severity"] for indicator in indicators
+        indicator.get("severity", 1)
+        for indicator in indicators
     )
 
     if highest_severity == 1:
         return "LOW"
+
     elif highest_severity == 2:
         return "MODERATE"
+
     elif highest_severity == 3:
         return "HIGH"
+
     else:
         return "CRITICAL"
 
 
 def validate_analysis(data):
-    """Validate the AI response and return a consistent SafeSphere format."""
+    """Validate AI response and return a consistent SafeSphere format."""
 
     if not isinstance(data, dict):
         return {
@@ -134,6 +146,8 @@ def validate_analysis(data):
     if not isinstance(summary, str):
         summary = ""
 
+    summary = summary.strip()
+
     # Validate indicators
     indicators = data.get("indicators", [])
 
@@ -141,38 +155,53 @@ def validate_analysis(data):
         indicators = []
 
     valid_indicators = []
+    seen_indicators = set()
 
     for indicator in indicators:
 
         if not isinstance(indicator, dict):
             continue
 
-        name = indicator.get("name")
+        name = indicator.get("name", "")
+
+        if not isinstance(name, str):
+            continue
+
+        name = name.lower().strip()
 
         # Keep only allowed indicators
-        if name in ALLOWED_INDICATORS:
+        if name not in ALLOWED_INDICATORS:
+            continue
 
-            severity = indicator.get("severity", 1)
+        # Avoid duplicate indicators
+        if name in seen_indicators:
+            continue
 
-            # Ensure severity is an integer
-            if not isinstance(severity, int):
-                severity = 1
+        severity = indicator.get("severity", 1)
 
-            # Keep severity between 1 and 4
-            severity = max(1, min(severity, 4))
+        # Ensure severity is an integer
+        if not isinstance(severity, int):
+            severity = 1
 
-            evidence = indicator.get("evidence", "")
+        # Keep severity between 1 and 3
+        severity = max(1, min(severity, 3))
 
-            if not isinstance(evidence, str):
-                evidence = ""
+        evidence = indicator.get("evidence", "")
 
-            valid_indicators.append({
-                "name": name,
-                "severity": severity,
-                "evidence": evidence
-            })
+        if not isinstance(evidence, str):
+            evidence = ""
 
-    # Calculate concern level from validated indicator severities
+        evidence = evidence.strip()
+
+        valid_indicators.append({
+            "name": name,
+            "severity": severity,
+            "evidence": evidence
+        })
+
+        seen_indicators.add(name)
+
+    # Calculate preliminary concern level
     concern_level = calculate_concern_level(valid_indicators)
 
     # Validate needs_context
@@ -181,7 +210,7 @@ def validate_analysis(data):
     if not isinstance(needs_context, bool):
         needs_context = False
 
-    # Generate controlled questions based on indicators
+    # Generate controlled questions
     questions = generate_dynamic_questions(valid_indicators)
 
     # Return one fixed response contract
@@ -203,6 +232,12 @@ def analyze_conversation(conversation):
             "error": "FEATHERLESS_API_KEY is missing"
         }
 
+    # Check model
+    if not FEATHERLESS_MODEL:
+        return {
+            "error": "FEATHERLESS_MODEL is missing"
+        }
+
     # Check empty conversation
     if not isinstance(conversation, str) or not conversation.strip():
         return {
@@ -217,16 +252,24 @@ Analyze the meaning of the conversation for potential safety concerns.
 IMPORTANT RULES:
 
 1. Only use indicators from this allowed list:
+
 {ALLOWED_INDICATORS}
 
 2. Do not invent new indicator names.
 
-3. Understand English, Hindi, Hinglish, and mixed languages.
+3. Only identify indicators supported by the conversation.
 
-4. Return ONLY valid JSON.
-Do not use markdown or code fences.
+4. Understand English, Hindi, Hinglish, and mixed languages.
 
-5. Keep the summary concise and neutral.
+5. Do not diagnose people.
+
+6. Do not claim certainty about someone's intentions.
+
+7. Keep the summary concise, neutral, and calm.
+
+8. Return ONLY valid JSON.
+
+9. Do not use markdown or code fences.
 
 Use exactly this structure:
 
@@ -239,21 +282,19 @@ Use exactly this structure:
             "evidence": "exact relevant text from conversation"
         }}
     ],
-    "concern_level": "LOW",
     "needs_context": false
 }}
 
 Severity rules:
-1 = low
-2 = moderate
-3 = high
-4 = critical
 
-Concern levels allowed:
-LOW
-MODERATE
-HIGH
-CRITICAL
+1 = mild
+2 = moderate
+3 = strong
+
+If there are no concerning indicators:
+
+- return an empty indicators list
+- set needs_context to false
 
 Conversation to analyze:
 
@@ -263,13 +304,15 @@ Conversation to analyze:
     # Call Featherless AI
     try:
         response = client.chat.completions.create(
-            model="Qwen/Qwen2.5-7B-Instruct",
+            model=FEATHERLESS_MODEL,
             messages=[
                 {
                     "role": "user",
                     "content": prompt
                 }
-            ]
+            ],
+            temperature=0.2,
+            max_tokens=1000
         )
 
     except Exception as error:
@@ -278,24 +321,38 @@ Conversation to analyze:
             "details": str(error)
         }
 
+    # Validate response
+    if not response.choices:
+        return {
+            "error": "Featherless returned no choices"
+        }
+
     # Get AI response
-    result = response.choices[0].message.content.strip()
+    result = response.choices[0].message.content
+
+    if not result:
+        return {
+            "error": "Featherless returned an empty response"
+        }
+
+    result = result.strip()
 
     # Remove markdown code fences if AI adds them
     if result.startswith("```json"):
-        result = result.replace("```json", "", 1)
+        result = result[7:]
 
     elif result.startswith("```"):
-        result = result.replace("```", "", 1)
+        result = result[3:]
 
     if result.endswith("```"):
-        result = result.rsplit("```", 1)[0]
+        result = result[:-3]
 
     result = result.strip()
 
     # Convert AI JSON string to Python dictionary
     try:
         data = json.loads(result)
+
         return validate_analysis(data)
 
     except json.JSONDecodeError:
@@ -306,7 +363,6 @@ Conversation to analyze:
 
 
 # Test the AI engine directly
-# Test the AI engine directly
 if __name__ == "__main__":
 
     test_conversation = """
@@ -316,4 +372,11 @@ Person A: Please kisi ko mat batana, just send it now.
     result = analyze_conversation(test_conversation)
 
     print("\nAI ANALYSIS:\n")
-    print(json.dumps(result, indent=4, ensure_ascii=False))
+
+    print(
+        json.dumps(
+            result,
+            indent=4,
+            ensure_ascii=False
+        )
+    )

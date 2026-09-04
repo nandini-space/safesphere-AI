@@ -3,13 +3,18 @@ from flask_cors import CORS
 
 from risk_engine import calculate_risk
 from safety_plan import generate_safety_plan
+from escalation_timeline import generate_escalation_timeline
 from AI.analyzer import analyze_conversation
+from supabase_client import supabase
 
 
-# Create Flask application
+# ==========================================
+# CREATE FLASK APPLICATION
+# ==========================================
+
 app = Flask(__name__)
 
-# Enable frontend to communicate with backend
+# Allow frontend to communicate with backend
 CORS(app)
 
 
@@ -44,7 +49,9 @@ def analyze():
     try:
         analysis = analyze_conversation(text)
 
-    except Exception:
+    except Exception as e:
+        print("Analysis error:", str(e))
+
         return jsonify({
             "success": False,
             "error": "Analysis service is temporarily unavailable. Please try again."
@@ -57,7 +64,7 @@ def analyze():
             "error": "Invalid response from analysis service"
         }), 502
 
-    # Check if AI returned an error
+    # Check if AI analyzer returned an error
     if analysis.get("error"):
         return jsonify({
             "success": False,
@@ -81,6 +88,8 @@ def analyze():
     ]
 
     if missing_fields:
+        print("Missing AI fields:", missing_fields)
+
         return jsonify({
             "success": False,
             "error": "Invalid response from analysis service"
@@ -110,70 +119,201 @@ def assess():
             "error": "No JSON data provided"
         }), 400
 
-    # Get indicators
+
+    # ==========================================
+    # GET CASE INFORMATION
+    # ==========================================
+
+    case_name = data.get(
+        "case_name",
+        "SafeSphere Analysis"
+    )
+
+    summary = data.get(
+        "summary",
+        ""
+    )
+
+
+    # ==========================================
+    # GET ANALYSIS DATA
+    # ==========================================
+
     indicators = data.get("indicators")
 
-    # Get optional user context
-    context = data.get("context", {})
+    context = data.get(
+        "context",
+        {}
+    )
 
-    # Get optional answers
-    answers = data.get("answers", {})
+    answers = data.get(
+        "answers",
+        {}
+    )
 
-    # Validate indicators
+
+    # ==========================================
+    # VALIDATE INPUT
+    # ==========================================
+
     if not indicators:
         return jsonify({
             "success": False,
             "error": "Indicators are required"
         }), 400
 
-    # Indicators must be a list
     if not isinstance(indicators, list):
         return jsonify({
             "success": False,
             "error": "Indicators must be a list"
         }), 400
 
-    # Context must be a dictionary
     if not isinstance(context, dict):
         return jsonify({
             "success": False,
             "error": "Context must be an object"
         }), 400
 
-    # Answers must be a dictionary
     if not isinstance(answers, dict):
         return jsonify({
             "success": False,
             "error": "Answers must be an object"
         }), 400
 
+
     # ==========================================
     # CALCULATE RISK
     # ==========================================
 
-    assessment = calculate_risk(
-        indicators,
-        context,
-        answers
-    )
+    try:
+
+        assessment = calculate_risk(
+            indicators,
+            context,
+            answers
+        )
+
+    except Exception as e:
+
+        print("Risk engine error:", str(e))
+
+        return jsonify({
+            "success": False,
+            "error": "Unable to calculate risk assessment"
+        }), 500
+
 
     # ==========================================
     # GENERATE SAFETY PLAN
     # ==========================================
 
-    safety_plan = generate_safety_plan(
-        assessment["level"],
-        indicators
-    )
+    try:
+
+        safety_plan = generate_safety_plan(
+            assessment["level"],
+            indicators
+        )
+
+    except Exception as e:
+
+        print("Safety plan error:", str(e))
+
+        safety_plan = []
+
+
+    # ==========================================
+    # GENERATE ESCALATION TIMELINE
+    # ==========================================
+
+    try:
+
+        timeline = generate_escalation_timeline(
+            indicators
+        )
+
+    except Exception as e:
+
+        print("Timeline error:", str(e))
+
+        timeline = []
+
+
+    # ==========================================
+    # SAVE TO EVIDENCE VAULT
+    # ==========================================
+
+    saved_case = None
+    vault_saved = False
+
+    try:
+
+        vault_data = {
+            "case_name": case_name,
+            "summary": summary,
+            "concern_level": assessment.get("level"),
+            "risk_score": assessment.get("score"),
+            "indicators": indicators,
+            "timeline": timeline,
+            "safety_plan": safety_plan
+        }
+
+        response = (
+            supabase
+            .table("evidence_vault")
+            .insert(vault_data)
+            .execute()
+        )
+
+        if response.data:
+
+            saved_case = response.data[0]
+
+            vault_saved = True
+
+            print(
+                "Evidence saved successfully! "
+                f"Case ID: {saved_case.get('id')}"
+            )
+
+    except Exception as e:
+
+        print(
+            "Evidence Vault save error:",
+            str(e)
+        )
+
 
     # ==========================================
     # RETURN FINAL RESULT
     # ==========================================
 
     return jsonify({
+
         "success": True,
+
         "assessment": assessment,
-        "safety_plan": safety_plan
+
+        "safety_plan": safety_plan,
+
+        "escalation_timeline": timeline,
+
+        "vault_saved": vault_saved,
+
+        "saved_case": saved_case
+
+    }), 200
+
+
+# ==========================================
+# HEALTH CHECK ENDPOINT
+# ==========================================
+
+@app.route("/", methods=["GET"])
+def home():
+
+    return jsonify({
+        "success": True,
+        "message": "SafeSphere Backend is running"
     }), 200
 
 
@@ -182,6 +322,7 @@ def assess():
 # ==========================================
 
 if __name__ == "__main__":
+
     app.run(
         debug=True,
         host="127.0.0.1",
