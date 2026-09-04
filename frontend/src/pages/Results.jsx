@@ -24,7 +24,6 @@ function Results() {
 
         </div>
 
-
         {/* Risk Card */}
         <div className="question-card">
 
@@ -57,8 +56,7 @@ function Results() {
 
         </div>
 
-
-        {/* Why flagged */}
+        {/* Why Flagged */}
         <div className="question-card">
 
           <h3>🔎 Why was this flagged?</h3>
@@ -70,7 +68,6 @@ function Results() {
           </p>
 
         </div>
-
 
         {/* Detected Patterns */}
         <div className="question-card">
@@ -94,7 +91,6 @@ function Results() {
           </div>
 
         </div>
-
 
         {/* Timeline */}
         <div className="question-card">
@@ -132,7 +128,6 @@ function Results() {
 
         </div>
 
-
         {/* Next Steps */}
         <div className="question-card">
 
@@ -152,9 +147,7 @@ function Results() {
 
         </div>
 
-
-        {/* Buttons */}
-
+        {/* Navigation Buttons */}
         <div
           style={{
             display: "flex",

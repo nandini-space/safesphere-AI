@@ -1,40 +1,109 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 function Questions() {
   const navigate = useNavigate();
 
+  const [feeling, setFeeling] = useState("");
+
+  const handleContinue = () => {
+    if (!feeling) {
+      alert("Please select an option before continuing.");
+      return;
+    }
+
+    navigate("/results");
+  };
+
   return (
     <div className="page">
-      <h1>A Few Questions</h1>
 
-      <p>
-        Answer these questions to help us understand the situation better.
-      </p>
+      <div className="analysis-container">
 
-      <h3>How did this interaction make you feel?</h3>
+        <div className="analysis-header">
 
-      <button onClick={() => alert("You selected: Uncomfortable")}>
-  Uncomfortable
-</button>
+          <span className="soft-badge">
+            💜 A little more context
+          </span>
 
-<button onClick={() => alert("You selected: Confused")}>
-  Confused
-</button>
+          <h1>A Few Questions</h1>
 
-<button onClick={() => alert("You selected: Worried")}>
-  Worried
-</button>
+          <p>
+            Answer these questions to help SafeSphere
+            understand the situation better.
+          </p>
 
-<button onClick={() => alert("You selected: Fine")}>
-  Fine
-</button>
+        </div>
 
-      <br />
-      <br />
+        <div className="question-card">
 
-      <button onClick={() => navigate("/results")}>
-        Continue
-      </button>
+          <h3>
+            How did this interaction make you feel?
+          </h3>
+
+          <div className="choice-row">
+
+            <button
+              className={
+                feeling === "Uncomfortable"
+                  ? "choice active"
+                  : "choice"
+              }
+              onClick={() => setFeeling("Uncomfortable")}
+            >
+              Uncomfortable
+            </button>
+
+            <button
+              className={
+                feeling === "Confused"
+                  ? "choice active"
+                  : "choice"
+              }
+              onClick={() => setFeeling("Confused")}
+            >
+              Confused
+            </button>
+
+            <button
+              className={
+                feeling === "Worried"
+                  ? "choice active"
+                  : "choice"
+              }
+              onClick={() => setFeeling("Worried")}
+            >
+              Worried
+            </button>
+
+            <button
+              className={
+                feeling === "Fine"
+                  ? "choice active"
+                  : "choice"
+              }
+              onClick={() => setFeeling("Fine")}
+            >
+              Fine
+            </button>
+
+          </div>
+
+        </div>
+
+        <div className="privacy-note">
+          🔒 You can skip anything you're not comfortable answering.
+        </div>
+
+        <button
+          className="start-button"
+          onClick={handleContinue}
+        >
+          Continue to Results →
+        </button>
+
+      </div>
+
     </div>
   );
 }
