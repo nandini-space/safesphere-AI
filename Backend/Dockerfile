@@ -10,10 +10,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends tesseract-ocr ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
+COPY Backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . ./
+COPY Backend/ ./
 
 EXPOSE 10000
 
